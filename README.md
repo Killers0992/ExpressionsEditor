@@ -10,4 +10,4 @@ How install?:
 
 Any generated stuff goes into Assets/AutoGen
 
-Any bugs/issues make issue or send message via discord Killers0992#4552
+Any bugs/issues make issue on github or send message via discord Killers0992#4552
