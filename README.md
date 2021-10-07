@@ -8,8 +8,10 @@ How install?:
 1. Download latest file ``ExpressionsEditor.unitypackage`` from https://github.com/Killers0992/ExpressionsEditor/releases/latest
 2. Open ``ExpressionsEditor.unitypackage`` and import into your unity project.
 
+Right now you can easily make toggles for gameobjects on your avatar with just grabbing gameobject and clicking create.
+Animator layer and parameters will be created.
+
+
 Any generated stuff goes into Assets/AutoGen
 
-https://cdn.discordapp.com/attachments/763138972037677086/895696689292247050/AutoToggle.mp4
-
-Any bugs/issues make issue on github or send message via discord Killers0992#4552
+Any bugs/issues/what i should add make issue on github or send message via discord Killers0992#4552
