@@ -8,9 +8,13 @@ How install?:
 1. Download latest file ``ExpressionsEditor.unitypackage`` from https://github.com/Killers0992/ExpressionsEditor/releases/latest
 2. Open ``ExpressionsEditor.unitypackage`` and import into your unity project.
 
-Right now you can easily make toggles for gameobjects on your avatar with just grabbing gameobject and clicking create.
-Animator layer and parameters will be created.
+How add toggle for gameobjects?
+1. Add new toggle into your menu.
+2. Unfold Toggle gameobject and select your gameobject from avatar.
+3. Use parameter name which not exists. ( using already existing one overrides that parameter )
+4. Click create. 
 
+More stuff soon.
 
 Any generated stuff goes into Assets/AutoGen
 
