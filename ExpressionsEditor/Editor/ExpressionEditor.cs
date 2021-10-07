@@ -300,7 +300,7 @@
                                                 {
                                                     new AnimatorCondition()
                                                     {
-                                                        mode = AnimatorConditionMode.If,
+                                                        mode = outData.isEnabledByDefault ? AnimatorConditionMode.IfNot : AnimatorConditionMode.If,
                                                         parameter = $"{outData.ParameterName}T",
                                                         threshold = 1f,
                                                     }
@@ -314,7 +314,7 @@
                                                 {
                                                     new AnimatorCondition()
                                                     {
-                                                        mode = AnimatorConditionMode.IfNot,
+                                                        mode = outData.isEnabledByDefault ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot,
                                                         parameter = $"{outData.ParameterName}T",
                                                         threshold = 1f,
                                                     }
