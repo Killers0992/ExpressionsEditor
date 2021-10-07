@@ -219,8 +219,8 @@
                                         {
                                             vrcAvatar.expressionParameters.parameters = vrcAvatar.expressionParameters.parameters.Append(new Parameter()
                                             {
-                                                valueType = ValueType.Int,
-                                                defaultValue = outData.isEnabledByDefault ? 1f : 0f,
+                                                valueType = ValueType.Bool,
+                                                defaultValue = outData.isEnabledByDefault ? 1 : 0,
                                                 saved = true,
                                                 name = $"{outData.ParameterName}T"
                                             }).ToArray();
@@ -231,7 +231,7 @@
                                             {
                                                 if (vrcAvatar.expressionParameters.parameters[x].name == $"{outData.ParameterName}T")
                                                 {
-                                                    vrcAvatar.expressionParameters.parameters[x].valueType = ValueType.Int;
+                                                    vrcAvatar.expressionParameters.parameters[x].valueType = ValueType.Bool;
                                                     vrcAvatar.expressionParameters.parameters[x].defaultValue = outData.isEnabledByDefault ? 1f : 0f;
                                                     vrcAvatar.expressionParameters.parameters[x].saved = true;
                                                 }
@@ -253,8 +253,8 @@
                                             {
                                                 if (ac.parameters[x].name == $"{outData.ParameterName}T")
                                                 {
-                                                    ac.parameters[x].type = AnimatorControllerParameterType.Int;
-                                                    ac.parameters[x].defaultInt = outData.isEnabledByDefault ? 1 : 0;
+                                                    ac.parameters[x].type = AnimatorControllerParameterType.Bool;
+                                                    ac.parameters[x].defaultBool = outData.isEnabledByDefault;
                                                     found = true;
                                                 }
                                             }
@@ -263,7 +263,7 @@
                                                 ac.AddParameter(new AnimatorControllerParameter()
                                                 {
                                                     defaultBool = outData.isEnabledByDefault,
-                                                    type = AnimatorControllerParameterType.Int,
+                                                    type = AnimatorControllerParameterType.Bool,
                                                     name = $"{outData.ParameterName}T"
                                                 });
                                             }
@@ -298,12 +298,12 @@
                                                 destinationState = stateOn,
                                                 conditions = new AnimatorCondition[1]
                                                 {
-                                                new AnimatorCondition()
-                                                {
-                                                    mode = AnimatorConditionMode.Equals,
-                                                    parameter = $"{outData.ParameterName}T",
-                                                    threshold = 1f,
-                                                }
+                                                    new AnimatorCondition()
+                                                    {
+                                                        mode = AnimatorConditionMode.If,
+                                                        parameter = $"{outData.ParameterName}T",
+                                                        threshold = 1f,
+                                                    }
                                                 }
                                             });
 
@@ -312,12 +312,12 @@
                                                 destinationState = stateOff,
                                                 conditions = new AnimatorCondition[1]
                                                 {
-                                                new AnimatorCondition()
-                                                {
-                                                    mode = AnimatorConditionMode.NotEqual,
-                                                    parameter = $"{outData.ParameterName}T",
-                                                    threshold = 1f,
-                                                }
+                                                    new AnimatorCondition()
+                                                    {
+                                                        mode = AnimatorConditionMode.IfNot,
+                                                        parameter = $"{outData.ParameterName}T",
+                                                        threshold = 1f,
+                                                    }
                                                 }
                                             });
                                         }
@@ -369,6 +369,7 @@
                                 case VRCExpressionParameters.ValueType.Int:
                                     control.value = EditorGUILayout.IntField("Value", (int)control.value);
                                     break;
+
                             }
                         }
                         else if (control.parameter != null)
@@ -615,6 +616,8 @@
 
         void OnGUI()
         {
+            if (!AssetDatabase.IsValidFolder("Assets/AutoGen"))
+                AssetDatabase.CreateFolder("Assets", "AutoGen");
             if (Application.isPlaying)
             {
                 GUILayout.Label("Stop playmode to use Expression editor.");
