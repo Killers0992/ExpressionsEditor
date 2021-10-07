@@ -2,6 +2,8 @@
  
 Easily edit your expressions via menu.
 
+https://user-images.githubusercontent.com/38152961/136450332-eec90df8-00e7-4bfa-ae1f-51e0f91c8a05.mp4
+
 Menu can be found in unity top bar ``ExpressionsEditor/Open Window``
 
 How install?: 
