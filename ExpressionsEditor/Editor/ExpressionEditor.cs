@@ -10,6 +10,7 @@
     using VRC.SDK3.Avatars.Components;
     using VRC.SDK3.Avatars.ScriptableObjects;
     using static VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters;
+    using static VRC.SDKBase.VRC_AnimatorTrackingControl;
 
     public class ExpressionEditor : EditorWindow
     {
@@ -95,7 +96,11 @@
             clip.wrapMode = WrapMode.Loop;
 
             var curve = new AnimationCurve(new Keyframe[1] { new Keyframe(0, state ? 1 : 0) });
-            clip.SetCurve(selectedObject.transform.GetPath().Replace(vrcAvatar.transform.GetPath(), "").Remove(0, 1), typeof(GameObject), "m_IsActive", curve);
+            var path = selectedObject.transform.GetPath().Replace(vrcAvatar.transform.GetPath(), "").Remove(0, 1);
+            if (selectedObject.TryGetComponent<SkinnedMeshRenderer>(out _))
+                clip.SetCurve(path, typeof(SkinnedMeshRenderer), "m_Enabled", curve);
+            else
+                clip.SetCurve(path, typeof(GameObject), "m_IsActive", curve);
             AssetDatabase.CreateAsset(clip, $"Assets/AutoGen/{$"{name}_{(state ? "ON" : "OFF")}"}.anim");
             return clip;
         }
@@ -194,6 +199,9 @@
                         if (foldouts[control].Count == 1)
                             foldouts[control].Add(false);
 
+                        if (foldouts[control].Count == 2)
+                            foldouts[control].Add(false);
+
                         foldouts[control][1] = EditorGUILayout.Foldout(foldouts[control][1], "Toggle gameobject");
                         if (foldouts[control][1])
                         {
@@ -276,14 +284,16 @@
                                                 }
                                             }
 
+                                            var stateMachine = new AnimatorStateMachine()
+                                            {
+                                                name = outData.ParameterName
+                                            };
+                                            AssetDatabase.AddObjectToAsset(stateMachine, ac);
                                             ac.AddLayer(new AnimatorControllerLayer()
                                             {
                                                 defaultWeight = outData.isEnabledByDefault ? 0f : 1f,
                                                 name = outData.ParameterName,
-                                                stateMachine = new AnimatorStateMachine()
-                                                {
-                                                    name = outData.ParameterName
-                                                }
+                                                stateMachine = stateMachine
                                             });
 
                                             var stateOff = ac.layers[ac.layers.Length - 1].stateMachine.AddState($"{outData.ParameterName} {(outData.isEnabledByDefault ? "ON" : "OFF")}");
@@ -293,7 +303,7 @@
                                             stateOn.motion = CreateAnimationToggle(outData.SelectedGameObject, outData.ParameterName, !outData.isEnabledByDefault);
 
 
-                                            stateOff.AddTransition(new AnimatorStateTransition()
+                                            var newTransition = new AnimatorStateTransition()
                                             {
                                                 destinationState = stateOn,
                                                 conditions = new AnimatorCondition[1]
@@ -305,9 +315,11 @@
                                                         threshold = 1f,
                                                     }
                                                 }
-                                            });
+                                            };
+                                            stateOff.AddTransition(newTransition);
+                                            AssetDatabase.AddObjectToAsset(newTransition, stateOff);
 
-                                            stateOn.AddTransition(new AnimatorStateTransition()
+                                            newTransition = new AnimatorStateTransition()
                                             {
                                                 destinationState = stateOff,
                                                 conditions = new AnimatorCondition[1]
@@ -319,7 +331,12 @@
                                                         threshold = 1f,
                                                     }
                                                 }
-                                            });
+                                            };
+                                            stateOn.AddTransition(newTransition);
+                                            AssetDatabase.AddObjectToAsset(newTransition, stateOn);
+
+                                            EditorUtility.SetDirty(ac);
+                                            AssetDatabase.SaveAssets();
                                         }
                                         foldouts[control][1] = false;
                                         tempdatas[control].Remove(0);
@@ -337,6 +354,374 @@
                             {
                                 if (dataOut.ContainsKey(0))
                                     dataOut.Remove(0);
+                            }
+                        }
+
+                        foldouts[control][2] = EditorGUILayout.Foldout(foldouts[control][2], "Dance");
+                        if (foldouts[control][2])
+                        {
+                            if (!tempdatas.ContainsKey(control))
+                                tempdatas.Add(control, new Dictionary<int, TempData>());
+
+                            if (!tempdatas[control].ContainsKey(1))
+                                tempdatas[control].Add(1, new TempData());
+
+                            if (tempdatas[control].TryGetValue(1, out TempData outData))
+                            {
+                                outData.SelectedAnimationClip = (AnimationClip)EditorGUILayout.ObjectField("Select animation", outData.SelectedAnimationClip, typeof(AnimationClip), true);
+                                outData.SelectedAudioClip = (AudioClip)EditorGUILayout.ObjectField("Select song", outData.SelectedAudioClip, typeof(AudioClip), true);
+                                if (GUILayout.Button("Create"))
+                                {
+                                    if (outData.SelectedAnimationClip != null)
+                                    {
+                                        if (vrcAvatar.baseAnimationLayers[3].animatorController is AnimatorController ac)
+                                        {
+                                            var actionLayer = ac.layers.FirstOrDefault(p => p.name == "Action");
+                                            if (actionLayer == null)
+                                            {
+                                                Debug.Log("Use default Action controller for your avatar! ( Action layer not found )");
+                                                goto skip;
+                                            }
+
+                                            var aaState = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "WaitForActionOrAFK").state;
+                                            if (aaState == null)
+                                            {
+                                                Debug.Log("Use default Action controller for your avatar! ( WaitForActionOrAFK state not found )");
+                                                goto skip;
+                                            }
+
+
+                                            var proxyStandingMotion = Resources.FindObjectsOfTypeAll<AnimationClip>().FirstOrDefault(p => p.name == "proxy_stand_still");
+
+                                            if (proxyStandingMotion == null)
+                                            {
+                                                Debug.Log("Proxy standing motion not found!");
+                                                goto skip;
+                                            }
+
+                                            var eeState = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "ExpressionEditor").state;
+                                            if (eeState == null)
+                                            {
+                                                eeState = actionLayer.stateMachine.AddState("ExpressionEditor");
+
+                                                eeState.motion = proxyStandingMotion;
+
+                                                var layerControl = eeState.AddStateMachineBehaviour<VRCPlayableLayerControl>();
+                                                layerControl.blendDuration = 0.5f;
+                                                layerControl.goalWeight = 1f;
+
+                                                var trackingControl = eeState.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+                                                trackingControl.trackingHead = TrackingType.Animation;
+                                                trackingControl.trackingLeftHand = TrackingType.Animation;
+                                                trackingControl.trackingRightHand = TrackingType.Animation;
+                                                trackingControl.trackingHip = TrackingType.Animation;
+                                                trackingControl.trackingLeftFoot = TrackingType.Animation;
+                                                trackingControl.trackingRightFoot = TrackingType.Animation;
+                                                trackingControl.trackingLeftFingers = TrackingType.Animation;
+                                                trackingControl.trackingRightFingers = TrackingType.Animation;
+
+                                                var newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = eeState
+                                                };
+                                                aaState.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, aaState);
+                                            }
+                                            int freeVRCEmote = -1;
+                                            AnimatorState state = null;
+                                            List<int> usedVRCEmotes = new List<int>();
+                                            foreach (var tr in eeState.transitions)
+                                            {
+                                                foreach (var condition in tr.conditions)
+                                                {
+                                                    if (tr.destinationState.name == $"Animation {outData.SelectedAnimationClip.name}")
+                                                    {
+                                                        state = tr.destinationState;
+                                                        freeVRCEmote = (int)condition.threshold;
+                                                    }
+                                                    if (!usedVRCEmotes.Contains((int)condition.threshold))
+                                                        usedVRCEmotes.Add((int)condition.threshold);
+                                                }
+                                            }
+
+                                            if (freeVRCEmote == -1)
+                                            {
+                                                for (int x = 10; x < int.MaxValue; x++)
+                                                {
+                                                    if (usedVRCEmotes.Contains(x))
+                                                        continue;
+                                                    usedVRCEmotes.Add(x);
+                                                    freeVRCEmote = x;
+                                                    break;
+                                                }
+                                            }
+
+
+                                            var blendout = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "EE BlendOut").state;
+                                            if (blendout == null)
+                                            {
+                                                blendout = actionLayer.stateMachine.AddState("EE BlendOut");
+                                                blendout.motion = proxyStandingMotion;
+                                                var layerControl = blendout.AddStateMachineBehaviour<VRCPlayableLayerControl>();
+                                                layerControl.goalWeight = 0f;
+                                                layerControl.blendDuration = 0.25f;
+                                            }
+                                           
+                                            var transition = aaState.transitions.FirstOrDefault(p => p.destinationState == eeState);
+                                            if (transition != null)
+                                            {
+                                                AnimatorState newAnim = null;
+                                                if (state != null)
+                                                    newAnim = state;
+                                                else
+                                                {
+                                                    transition.conditions = new AnimatorCondition[]
+                                                    {
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.Greater,
+                                                            parameter = "VRCEmote",
+                                                            threshold = usedVRCEmotes.Count == 0 ? 9 : usedVRCEmotes.OrderBy(p => p).First() - 1
+                                                        },
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.Less,
+                                                            parameter = "VRCEmote",
+                                                            threshold = usedVRCEmotes.Count == 0 ? 11 : usedVRCEmotes.OrderBy(p => p).Last() + 1
+                                                        }
+                                                    };
+                                                    newAnim = actionLayer.stateMachine.AddState($"Animation {outData.SelectedAnimationClip.name}");
+                                                }
+
+                                                newAnim.motion = outData.SelectedAnimationClip;
+
+                                                var newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = newAnim,
+                                                    hasExitTime = false,
+                                                    conditions = new AnimatorCondition[]
+                                                    {
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.Equals,
+                                                            parameter = "VRCEmote",
+                                                            threshold = freeVRCEmote
+                                                        }
+                                                    }
+                                                };
+                                                eeState.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, eeState);
+                                                newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = blendout,
+                                                    hasExitTime = false,
+                                                    conditions = new AnimatorCondition[]
+                                                    {
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.NotEqual,
+                                                            parameter = "VRCEmote",
+                                                            threshold = freeVRCEmote
+                                                        }
+                                                    }
+                                                };
+                                                newAnim.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, eeState);
+                                            }
+
+                                            var resetTrack = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "EE Reset Tracking").state;
+                                            if (resetTrack == null)
+                                            {
+                                                resetTrack = actionLayer.stateMachine.AddState("EE Reset Tracking");
+                                                resetTrack.motion = proxyStandingMotion;
+                                                var trackingControl = resetTrack.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
+                                                trackingControl.trackingHead = TrackingType.Tracking;
+                                                trackingControl.trackingLeftHand = TrackingType.Tracking;
+                                                trackingControl.trackingRightHand = TrackingType.Tracking;
+                                                trackingControl.trackingHip = TrackingType.Tracking;
+                                                trackingControl.trackingLeftFoot = TrackingType.Tracking;
+                                                trackingControl.trackingRightFoot = TrackingType.Tracking;
+                                                trackingControl.trackingLeftFingers = TrackingType.Tracking;
+                                                trackingControl.trackingRightFingers = TrackingType.Tracking;
+
+                                                var newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = resetTrack,
+                                                };
+                                                blendout.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, blendout);
+
+                                                resetTrack.AddExitTransition(true);
+                                            }
+
+                                            EditorUtility.SetDirty(ac);
+                                            AssetDatabase.SaveAssets();
+
+                                            control.parameter = new VRCExpressionsMenu.Control.Parameter()
+                                            {
+                                                name = $"VRCEmote"
+                                            };
+                                            control.value = freeVRCEmote;
+                                            parameters = GetParams();
+                                            selectedIndexes[control][0] = GetIndexOfParam(control.parameter);
+
+                                            if (outData.SelectedAnimationClip == null)
+                                                goto skip;
+
+                                            GameObject animations = null;
+                                            for(int x = 0; x < vrcAvatar.transform.childCount; x++)
+                                            {
+                                                if (vrcAvatar.transform.GetChild(x).name == "Animations")
+                                                {
+                                                    animations = vrcAvatar.transform.GetChild(x).gameObject;
+                                                }
+                                            }
+                                            if (animations == null)
+                                            {
+                                                animations = new GameObject("Animations");
+                                                animations.transform.parent = vrcAvatar.transform;
+                                                animations.transform.localPosition = Vector3.zero;
+                                            }
+                                            GameObject existingAnimation = null;
+                                            for (int x = 0; x < animations.transform.childCount; x++)
+                                            {
+                                                if (animations.transform.GetChild(x).name == $"A {outData.SelectedAnimationClip.name}")
+                                                {
+                                                    existingAnimation = animations.transform.GetChild(x).gameObject;
+                                                }
+                                            }
+                                            if (existingAnimation == null)
+                                            {
+                                                existingAnimation = new GameObject($"A {outData.SelectedAnimationClip.name}");
+                                                existingAnimation.transform.parent = animations.transform;
+                                                existingAnimation.transform.localPosition = Vector3.zero;
+                                                var audioSource = existingAnimation.AddComponent<AudioSource>();
+                                                audioSource.clip = outData.SelectedAudioClip;
+                                                audioSource.spatialBlend = 1f;
+                                                audioSource.maxDistance = 50f;
+                                                audioSource.minDistance = 2f;
+                                                audioSource.bypassEffects = true;
+                                                audioSource.bypassListenerEffects = true;
+                                                audioSource.bypassReverbZones = true;
+                                                audioSource.priority = 256;
+                                            }
+                                            else
+                                            {
+                                                var audioSource = existingAnimation.GetComponent<AudioSource>();
+                                                audioSource.clip = outData.SelectedAudioClip;
+                                                audioSource.spatialBlend = 1f;
+                                                audioSource.maxDistance = 50f;
+                                                audioSource.minDistance = 2f;
+                                                audioSource.bypassEffects = true;
+                                                audioSource.bypassListenerEffects = true;
+                                                audioSource.bypassReverbZones = true;
+                                                audioSource.priority = 256;
+                                            }
+                                            existingAnimation.SetActive(false);
+                                            if (vrcAvatar.baseAnimationLayers[4].animatorController is AnimatorController ac2)
+                                            {
+                                                bool found = false;
+                                                for (int x = 0; x < ac2.parameters.Length; x++)
+                                                {
+                                                    if (ac2.parameters[x].name == $"VRCEmote")
+                                                    {
+                                                        ac2.parameters[x].type = AnimatorControllerParameterType.Int;
+                                                        ac2.parameters[x].defaultInt = 0;
+                                                        found = true;
+                                                    }
+                                                }
+                                                if (!found)
+                                                {
+                                                    ac2.AddParameter(new AnimatorControllerParameter()
+                                                    {
+                                                        defaultInt = 0,
+                                                        type = AnimatorControllerParameterType.Int,
+                                                        name = $"VRCEmote"
+                                                    });
+                                                }
+
+                                                for (int x = 0; x < ac2.layers.Length; x++)
+                                                {
+                                                    if (ac2.layers[x].name == $"A {outData.SelectedAnimationClip.name}")
+                                                    {
+                                                        ac2.RemoveLayer(x);
+                                                    }
+                                                }
+
+                                                var stateMachine = new AnimatorStateMachine()
+                                                {
+                                                    name = $"A {outData.SelectedAnimationClip.name}"
+                                                };
+                                                AssetDatabase.AddObjectToAsset(stateMachine, ac2);
+
+                                                ac2.AddLayer(new AnimatorControllerLayer()
+                                                {
+                                                    defaultWeight = 1f,
+                                                    name = $"A {outData.SelectedAnimationClip.name}",
+                                                    stateMachine = stateMachine
+                                                });
+
+                                                var layer = ac2.layers[ac2.layers.Length - 1];
+
+                                                var stateOff = layer.stateMachine.AddState($"Animation OFF");
+                                                stateOff.motion = CreateAnimationToggle(existingAnimation, $"A {outData.SelectedAnimationClip.name}", false);
+
+                                                var stateOn = layer.stateMachine.AddState($"Animation ON");
+                                                stateOn.motion = CreateAnimationToggle(existingAnimation, $"A {outData.SelectedAnimationClip.name}", true);
+
+                                                var newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = stateOn,
+                                                    conditions = new AnimatorCondition[1]
+                                                    {
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.Equals,
+                                                            parameter = $"VRCEmote",
+                                                            threshold = freeVRCEmote,
+                                                        }
+                                                    }
+                                                };
+                                                stateOff.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, ac2);
+
+                                                newTransition = new AnimatorStateTransition()
+                                                {
+                                                    destinationState = stateOff,
+                                                    conditions = new AnimatorCondition[1]
+                                                    {
+                                                        new AnimatorCondition()
+                                                        {
+                                                            mode = AnimatorConditionMode.NotEqual,
+                                                            parameter = $"VRCEmote",
+                                                            threshold = freeVRCEmote,
+                                                        }
+                                                    }
+                                                };
+                                                stateOn.AddTransition(newTransition);
+                                                AssetDatabase.AddObjectToAsset(newTransition, ac2);
+
+                                                EditorUtility.SetDirty(ac2);
+                                                AssetDatabase.SaveAssets();
+                                            }
+                                        }
+                                        skip:
+                                        foldouts[control][2] = false;
+                                        tempdatas[control].Remove(1);
+                                    }
+                                    else
+                                    {
+                                        Debug.Log("OBJECT IS NULL");
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (tempdatas.TryGetValue(control, out Dictionary<int, TempData> dataOut))
+                            {
+                                if (dataOut.ContainsKey(1))
+                                    dataOut.Remove(1);
                             }
                         }
                         EditorGUILayout.EndVertical();
@@ -552,6 +937,8 @@
                         type = VRCExpressionsMenu.Control.ControlType.Button,
                         name = "Button"
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
                 if (GUILayout.Button("Toggle"))
                 {
@@ -560,6 +947,8 @@
                         type = VRCExpressionsMenu.Control.ControlType.Toggle,
                         name = "Toggle"
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
                 if (GUILayout.Button("TwoAxis"))
                 {
@@ -569,6 +958,8 @@
                         subParameters = new VRCExpressionsMenu.Control.Parameter[2],
                         name = "TwoAxis"
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
                 if (GUILayout.Button("FourAxis"))
                 {
@@ -578,6 +969,8 @@
                         subParameters = new VRCExpressionsMenu.Control.Parameter[2],
                         name = "FourAxis"
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
                 if (GUILayout.Button("Radial"))
                 {
@@ -587,6 +980,8 @@
                         subParameters = new VRCExpressionsMenu.Control.Parameter[1],
                         name = "Radial"
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
                 if (GUILayout.Button("Submenu"))
                 {
@@ -604,6 +999,8 @@
                         name = "SubMenu",
                         subMenu = eMenu
                     });
+                    EditorUtility.SetDirty(menu);
+                    AssetDatabase.SaveAssets();
                 }
             }
             else
@@ -612,6 +1009,20 @@
             }
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        public void OnDestroy()
+        {
+            if (vrcAvatar?.expressionParameters != null)
+            {
+                EditorUtility.SetDirty(vrcAvatar.expressionParameters);
+                AssetDatabase.SaveAssets();
+            }
+            if (vrcAvatar?.expressionsMenu != null)
+            {
+                EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
+                AssetDatabase.SaveAssets();
+            }
         }
 
         void OnGUI()
