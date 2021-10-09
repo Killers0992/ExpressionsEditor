@@ -16,6 +16,11 @@ How add toggle for gameobjects?
 3. Use parameter name which not exists. ( using already existing one overrides that parameter )
 4. Click create. 
 
+How add animation dance with/without song?
+1. Add new toggle into your menu.
+2. Unfold Dance and select your animation clip or audio clip.
+3. Click create.
+
 More stuff soon.
 
 Any generated stuff goes into Assets/AutoGen
