@@ -352,8 +352,11 @@
                             }
                         }
 
-                        int realGreaterValue = ids.Count == 0 ? -1 : ids.OrderBy(p => p).First();
-                        int realLessValue = ids.Count == 0 ? -1 : ids.OrderByDescending(p => p).First();
+                        int realGreaterValue = ids.Count == 0 ? -1 : ids.OrderBy(p => p).First() - 1;
+                        int realLessValue = ids.Count == 0 ? -1 : ids.OrderByDescending(p => p).First() + 1;
+
+                        Debug.Log("Greater value " + realGreaterValue + " current " + greaterValue);
+                        Debug.Log("Less value " + realLessValue + " current " + lessValue);
 
                         if (realGreaterValue == realLessValue)
                         {
@@ -424,7 +427,7 @@
                             {
                                 mode = AnimatorConditionMode.Greater,
                                 parameter = "VRCEmote",
-                                threshold = higestValue,
+                                threshold = higestValue - 2,
                             },
                             new AnimatorCondition()
                             {
