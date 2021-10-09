@@ -317,6 +317,9 @@
                     transitions.AddRange(sstate.state.transitions);
                 }
 
+                int lowestValue = -1;
+                int highestValue = -1;
+
                 foreach(var transitionx in transitions)
                 {
                     int greaterValue = -1;
@@ -373,6 +376,8 @@
                         if (lessValue != realLessValue)
                             lessValue = realLessValue;
 
+                        lowestValue = greaterValue;
+                        highestValue = lessValue + 1;
                         skip:
                         for (int x = greaterValue + 1; x < lessValue; x++)
                         {
@@ -381,8 +386,6 @@
                         }
                     }
                 }
-
-
 
                 foreach (var tr in eeState.transitions)
                 {
@@ -396,12 +399,19 @@
                     }
                 }
 
-                int higestValue = usedVRCEmotes.OrderByDescending(p => p).First();
+                Debug.Log(usedVRCEmotes.OrderByDescending(p => p).First());
+                if (lowestValue == -1)
+                    lowestValue = usedVRCEmotes.OrderByDescending(p => p).First();
+
+                if (highestValue == -1)
+                    highestValue = lowestValue + 2;
 
                 if (freeVRCEmote == -1)
                 {
-                    freeVRCEmote = higestValue + 1;
+                    freeVRCEmote = highestValue - 1;
                 }
+
+                Debug.Log($"FreeID {freeVRCEmote}, highest {highestValue}, lowest {lowestValue}");
 
                 var blendout = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "EE BlendOut").state;
                 if (blendout == null)
@@ -427,13 +437,13 @@
                             {
                                 mode = AnimatorConditionMode.Greater,
                                 parameter = "VRCEmote",
-                                threshold = higestValue - 2,
+                                threshold = lowestValue,
                             },
                             new AnimatorCondition()
                             {
                                 mode = AnimatorConditionMode.Less,
                                 parameter = "VRCEmote",
-                                threshold = higestValue + 2
+                                threshold = highestValue
                             }
                         };
                         newAnim = actionLayer.stateMachine.AddState($"{animationClip.name}", new Vector3(-1000f, 200f, 0f));
