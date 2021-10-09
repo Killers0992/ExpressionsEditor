@@ -358,9 +358,6 @@
                         int realGreaterValue = ids.Count == 0 ? -1 : ids.OrderBy(p => p).First() - 1;
                         int realLessValue = ids.Count == 0 ? -1 : ids.OrderByDescending(p => p).First() + 1;
 
-                        Debug.Log("Greater value " + realGreaterValue + " current " + greaterValue);
-                        Debug.Log("Less value " + realLessValue + " current " + lessValue);
-
                         if (realGreaterValue == realLessValue)
                         {
                             if (realGreaterValue == -1)
@@ -399,7 +396,6 @@
                     }
                 }
 
-                Debug.Log(usedVRCEmotes.OrderByDescending(p => p).First());
                 if (lowestValue == -1)
                     lowestValue = usedVRCEmotes.OrderByDescending(p => p).First();
 
@@ -410,8 +406,6 @@
                 {
                     freeVRCEmote = highestValue - 1;
                 }
-
-                Debug.Log($"FreeID {freeVRCEmote}, highest {highestValue}, lowest {lowestValue}");
 
                 var blendout = actionLayer.stateMachine.states.FirstOrDefault(p => p.state.name == "EE BlendOut").state;
                 if (blendout == null)
