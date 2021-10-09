@@ -1105,7 +1105,7 @@
                             dances.Add(clip, aclip);
                         }
                         int used = 1;
-                        var sub = CreateSubMenu(vrcAvatar.expressionsMenu, "Dances");
+                        var sub = CreateSubMenu(menu, "Dances");
                         sub.name = "Dances";
                         foreach (var dance in dances)
                         {
