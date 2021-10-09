@@ -176,10 +176,10 @@
             var lastLayer = animator.layers[animator.layers.Length - 1];
 
             var state1 = lastLayer.stateMachine.AddState($"Animation {(defaultValueFloat == 1f ? "ON" : "OFF")}");
-            state1.motion = CreateAnimationToggle(selectedObject, selectedObject.name, defaultValueFloat == 1f);
+            state1.motion = CreateAnimationToggle(selectedObject, defaultValue is bool ? parameterName : selectedObject.name, defaultValueFloat == 1f);
 
             var state2 = lastLayer.stateMachine.AddState($"Animation {(defaultValueFloat != 1f ? "ON" : "OFF")}");
-            state2.motion = CreateAnimationToggle(selectedObject, selectedObject.name, defaultValueFloat != 1f);
+            state2.motion = CreateAnimationToggle(selectedObject, defaultValue is bool ? parameterName : selectedObject.name, defaultValueFloat != 1f);
 
             AnimatorConditionMode condition1 = AnimatorConditionMode.If;
             AnimatorConditionMode condition2 = AnimatorConditionMode.IfNot;
