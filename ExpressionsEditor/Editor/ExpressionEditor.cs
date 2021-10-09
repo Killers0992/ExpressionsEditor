@@ -246,7 +246,7 @@
             return clip;
         }     
 
-        bool CreateDanceAnimation(VRCExpressionsMenu.Control control, AnimationClip animationClip, AudioClip audioClip = null)
+        bool CreateDanceAnimation(VRCExpressionsMenu.Control control, AnimationClip animationClip, AudioClip audioClip = null, bool raw = false)
         {
             if (animationClip == null)
             {
@@ -516,8 +516,12 @@
                     name = $"VRCEmote"
                 };
                 control.value = freeVRCEmote;
-                parameters = GetParams();
-                selectedIndexes[control][0] = GetIndexOfParam(control.parameter);
+                if (!raw)
+                {
+                    parameters = GetParams();
+                    selectedIndexes[control][0] = GetIndexOfParam(control.parameter);
+                }
+
 
                 if (audioClip == null)
                     return true;
@@ -636,6 +640,7 @@
                         if (!scrollViews.ContainsKey(control.subMenu))
                             scrollViews.Add(control.subMenu, new Vector2(0f, 0f));
 
+                        AddSubmenuPremades(control.subMenu);
                         scrollViews[control.subMenu] = EditorGUILayout.BeginScrollView(scrollViews[control.subMenu]);
                         foreach (var subMenuControl in control.subMenu.controls.ToArray())
                         {
@@ -1005,13 +1010,7 @@
                 }
                 if (GUILayout.Button("Toggle"))
                 {
-                    menu.controls.Add(new VRCExpressionsMenu.Control()
-                    {
-                        type = VRCExpressionsMenu.Control.ControlType.Toggle,
-                        name = "Toggle"
-                    });
-                    EditorUtility.SetDirty(menu);
-                    AssetDatabase.SaveAssets();
+                    AddToggle(menu, "Toggle");
                 }
                 if (GUILayout.Button("TwoAxis"))
                 {
@@ -1048,22 +1047,7 @@
                 }
                 if (GUILayout.Button("Submenu"))
                 {
-                    VRCExpressionsMenu eMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
-
-                    if (!AssetDatabase.IsValidFolder(Path.Combine("Assets", "AutoGen")))
-                        AssetDatabase.CreateFolder("Assets", "AutoGen");
-
-                    string assetPathAndName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGen/SubMenu.asset");
-                    AssetDatabase.CreateAsset(eMenu, assetPathAndName);
-
-                    menu.controls.Add(new VRCExpressionsMenu.Control()
-                    {
-                        type = VRCExpressionsMenu.Control.ControlType.SubMenu,
-                        name = "SubMenu",
-                        subMenu = eMenu
-                    });
-                    EditorUtility.SetDirty(menu);
-                    AssetDatabase.SaveAssets();
+                    CreateSubMenu(menu, "Submenu");
                 }
             }
             else
@@ -1072,6 +1056,103 @@
             }
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        VRCExpressionsMenu.Control AddToggle(VRCExpressionsMenu menu, string name)
+        {
+            var toggle = new VRCExpressionsMenu.Control()
+            {
+                type = VRCExpressionsMenu.Control.ControlType.Toggle,
+                name = name
+            };
+            menu.controls.Add(toggle);
+            EditorUtility.SetDirty(menu);
+            AssetDatabase.SaveAssets();
+            return toggle;
+        }
+
+        void AddSubmenuPremades(VRCExpressionsMenu menu)
+        {
+            if (!MainFoldOuts.ContainsKey(menu))
+                MainFoldOuts.Add(menu, new List<bool>() { false, false });
+            GUILayout.Label("Menu");
+            MainFoldOuts[menu][0] = EditorGUILayout.Foldout(MainFoldOuts[menu][0], "Premades");
+            if (MainFoldOuts[menu][0])
+            {
+                MainFoldOuts[menu][1] = EditorGUILayout.Foldout(MainFoldOuts[menu][1], "Dances folder");
+                if (MainFoldOuts[menu][1])
+                {
+                    PathDances = EditorGUILayout.TextField("Path", PathDances);
+                    if (GUILayout.Button("Create submenu"))
+                    {
+                        Dictionary<AnimationClip, AudioClip> dances = new Dictionary<AnimationClip, AudioClip>();
+                        foreach (var danceFolders in AssetDatabase.GetSubFolders(PathDances))
+                        {
+                            AnimationClip clip = null;
+                            AudioClip aclip = null;
+                            foreach (var asset in AssetDatabase.FindAssets("t:audioclip t:animationclip", new string[] { danceFolders }))
+                            {
+                                var path = AssetDatabase.GUIDToAssetPath(asset);
+                                if (path.EndsWith(".anim"))
+                                {
+                                    clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                                }
+                                else
+                                {
+                                    aclip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+                                }
+                            }
+                            dances.Add(clip, aclip);
+                        }
+                        int used = 1;
+                        var sub = CreateSubMenu(vrcAvatar.expressionsMenu, "Dances");
+                        sub.name = "Dances";
+                        foreach (var dance in dances)
+                        {
+                            if (used != 8)
+                            {
+                                var toggle = AddToggle(sub, dance.Key.name);
+                                CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                            }
+                            else
+                            {
+                                sub = CreateSubMenu(sub, "Next Page");
+                                used = 2;
+                                var toggle = AddToggle(sub, dance.Key.name);
+                                CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                            }
+                            used++;
+                        }
+                        EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
+                        AssetDatabase.SaveAssets();
+                    }
+
+
+                }
+            }
+            EditorGUILayout.Space(10f);
+            GUILayout.Label("Controls");
+        }
+
+        VRCExpressionsMenu CreateSubMenu(VRCExpressionsMenu menu, string name)
+        {
+            VRCExpressionsMenu eMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+
+            if (!AssetDatabase.IsValidFolder(Path.Combine("Assets", "AutoGen")))
+                AssetDatabase.CreateFolder("Assets", "AutoGen");
+
+            string assetPathAndName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGen/SubMenu.asset");
+            AssetDatabase.CreateAsset(eMenu, assetPathAndName);
+
+            menu.controls.Add(new VRCExpressionsMenu.Control()
+            {
+                type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+                name = name,
+                subMenu = eMenu
+            });
+            EditorUtility.SetDirty(menu);
+            AssetDatabase.SaveAssets();
+            return eMenu;
         }
 
         public void OnDestroy()
@@ -1087,6 +1168,9 @@
                 AssetDatabase.SaveAssets();
             }
         }
+
+        string PathDances = "Assets/Dances";
+        Dictionary<VRCExpressionsMenu, List<bool>> MainFoldOuts { get; set; } = new Dictionary<VRCExpressionsMenu, List<bool>>();
 
         void OnGUI()
         {
@@ -1140,7 +1224,7 @@
                 }
                 if (!scrollViews.ContainsKey(vrcAvatar.expressionsMenu))
                     scrollViews.Add(vrcAvatar.expressionsMenu, new Vector2(0f, 0f));
-
+                AddSubmenuPremades(vrcAvatar.expressionsMenu);
                 scrollViews[vrcAvatar.expressionsMenu] = EditorGUILayout.BeginScrollView(scrollViews[vrcAvatar.expressionsMenu]);
                 foreach (var control in vrcAvatar.expressionsMenu.controls.ToArray())
                 {
