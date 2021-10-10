@@ -15,9 +15,11 @@
 
     public class ExpressionEditor : EditorWindow
     {
+        PageModel currentPage;
         string NameFilter = "";
         string PathDances = "Assets/Dances";
         VRCAvatarDescriptor vrcAvatar = null;
+        readonly Dictionary<VRCExpressionsMenu, PageModel> pages = new Dictionary<VRCExpressionsMenu, PageModel>();
         Dictionary<int, ParamValue> parameters = new Dictionary<int, ParamValue>();
         Dictionary<int, ParamValue> rotationParameters = new Dictionary<int, ParamValue>();
         Dictionary<VRCExpressionsMenu, List<bool>> MainFoldOuts { get; set; } = new Dictionary<VRCExpressionsMenu, List<bool>>();
@@ -633,29 +635,28 @@
             switch (control.type)
             {
                 case VRCExpressionsMenu.Control.ControlType.SubMenu:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}Submenu");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (Submenu)");
                     if (isShow)
                     {
-                        AddControlButtons(menu, control);
-                        control.name = EditorGUILayout.TextField($"{GetSpaces(num)}Name", control.name);
-                        control.icon = (Texture2D)EditorGUILayout.ObjectField($"{GetSpaces(num + 2)}Icon", control.icon, typeof(Texture2D), true);
                         control.subMenu = (VRCExpressionsMenu)EditorGUILayout.ObjectField($"{GetSpaces(num + 2)}Menu object", control.subMenu, typeof(VRCExpressionsMenu), true);
                         if (!scrollViews.ContainsKey(control.subMenu))
                             scrollViews.Add(control.subMenu, new Vector2(0f, 0f));
 
-                        AddSubmenuPremades(control.subMenu);
-                        scrollViews[control.subMenu] = EditorGUILayout.BeginScrollView(scrollViews[control.subMenu]);
-                        foreach (var subMenuControl in control.subMenu.controls.ToArray())
+                        if (GUILayout.Button("Open"))
                         {
-                            CreateFoldable(control.subMenu, subMenuControl, num + 2);
+                            pages.Add(control.subMenu, new PageModel()
+                            {
+                                Control = currentPage.Control,
+                                Menu = menu 
+                            });
+                            currentPage = new PageModel() { Menu = control.subMenu, Control = control };
+                            foldouts[control][0] = false;
                         }
-                        EditorGUILayout.EndScrollView();
-                        AddButtons(control.subMenu);
                         EditorGUILayout.Separator();
                     }
                     break;
                 case VRCExpressionsMenu.Control.ControlType.Button:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}Button");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (Button)");
                     if (isShow)
                     {
                         AddControlButtons(menu, control);
@@ -698,7 +699,7 @@
                     }
                     break;
                 case VRCExpressionsMenu.Control.ControlType.Toggle:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}Toggle");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (Toggle)");
                     if (isShow)
                     {
                         AddControlButtons(menu, control);
@@ -837,7 +838,7 @@
                     }
                     break;
                 case VRCExpressionsMenu.Control.ControlType.TwoAxisPuppet:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}TwoAxis Puppet");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (TwoAxis Puppet)");
                     if (isShow)
                     {
                         AddControlButtons(menu, control);
@@ -922,7 +923,7 @@
                     }
                     break;
                 case VRCExpressionsMenu.Control.ControlType.FourAxisPuppet:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}FourAxis Puppet");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (FourAxis Puppet)");
 
                     if (isShow)
                     {
@@ -985,14 +986,35 @@
             }
         }
 
-        void AddControlButtons(VRCExpressionsMenu menu, VRCExpressionsMenu.Control control)
+        bool AddControlButtons(VRCExpressionsMenu menu, VRCExpressionsMenu.Control control)
         {
             EditorGUILayout.BeginHorizontal();
+            
+
             if (GUILayout.Button("Delete"))
             {
-                menu.controls.Remove(control);
+                if (EditorUtility.DisplayDialog("Delete control", $"Do you want to delete control {control.name}?", "Yes"))
+                {
+                    if (control.type == VRCExpressionsMenu.Control.ControlType.SubMenu)
+                    {
+                        EditorUtility.SetDirty(menu);
+                        AssetDatabase.SaveAssets();
+                        MoveBack();
+                        currentPage.Menu.controls.Remove(control);
+                        EditorUtility.SetDirty(currentPage.Menu);
+                        AssetDatabase.SaveAssets();
+                        return false;
+                    }
+                    else
+                    {
+                        menu.controls.Remove(control);
+                        EditorUtility.SetDirty(menu);
+                        AssetDatabase.SaveAssets();
+                    }
+                }
             }
             EditorGUILayout.EndHorizontal();
+            return true;
         }
 
         void AddButtons(VRCExpressionsMenu menu)
@@ -1078,87 +1100,106 @@
         {
             if (!MainFoldOuts.ContainsKey(menu))
                 MainFoldOuts.Add(menu, new List<bool>() { false, false });
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
             GUILayout.Label("Menu");
-            MainFoldOuts[menu][0] = EditorGUILayout.Foldout(MainFoldOuts[menu][0], "Premades");
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            if (currentPage.Menu != vrcAvatar.expressionsMenu)
+            {
+                if (GUILayout.Button("Back"))
+                {
+                    EditorUtility.SetDirty(currentPage.Menu);
+                    AssetDatabase.SaveAssets();
+                    MoveBack();
+                    return;
+                }
+                if (AddControlButtons(currentPage.Menu, currentPage.Control))
+                {
+                    currentPage.Control.name = EditorGUILayout.TextField($"{GetSpaces(-2)}Name", currentPage.Control.name);
+                    currentPage.Control.icon = (Texture2D)EditorGUILayout.ObjectField($"{GetSpaces(-2)}Icon", currentPage.Control.icon, typeof(Texture2D), true);
+                }
+            }
+
+            GUILayout.Label("Add premade");
+            MainFoldOuts[menu][0] = EditorGUILayout.Foldout(MainFoldOuts[menu][0], "  Dances folder");
             if (MainFoldOuts[menu][0])
             {
-                MainFoldOuts[menu][1] = EditorGUILayout.Foldout(MainFoldOuts[menu][1], "  Dances folder");
-                if (MainFoldOuts[menu][1])
+                NameFilter = EditorGUILayout.TextField("  Name filter", NameFilter);
+                EditorGUILayout.HelpBox(string.Concat(
+                    "Filter name of animationclips and use them as button names",
+                    Environment.NewLine,
+                    "Example: Animation clip with name Dance1BestDance and using Dance1 as filter",
+                    Environment.NewLine,
+                    "Will replace that name to just BestDance",
+                    Environment.NewLine,
+                    "( More filters are seperated by , )"
+                ), MessageType.Info, true);
+                PathDances = EditorGUILayout.TextField("  Path", PathDances);
+                EditorGUILayout.HelpBox(string.Concat(
+                    "Path which will contain folders of dances",
+                    Environment.NewLine,
+                    $"{PathDances}/",
+                    Environment.NewLine,
+                    "└─ Dance1 /",
+                    Environment.NewLine,
+                    "     ├─ AnimationClip",
+                    Environment.NewLine,
+                    "     └─ AudioClip"
+                ), MessageType.Info, true);
+                if (GUILayout.Button("  Create submenu"))
                 {
-                    NameFilter = EditorGUILayout.TextField("  Name filter", NameFilter);
-                    EditorGUILayout.HelpBox(string.Concat(
-                        "Filter name of animationclips and use them as button names",
-                        Environment.NewLine,
-                        "Example: Animation clip with name Dance1BestDance and using Dance1 as filter",
-                        Environment.NewLine,
-                        "Will replace that name to just BestDance",
-                        Environment.NewLine,
-                        "( More filters are seperated by , )"
-                    ), MessageType.Info, true);
-                    PathDances = EditorGUILayout.TextField("  Path", PathDances);
-                    EditorGUILayout.HelpBox(string.Concat(
-                        "Path which will contain folders of dances",
-                        Environment.NewLine,
-                        $"{PathDances}/",
-                        Environment.NewLine,
-                        "└─ Dance1 /",
-                        Environment.NewLine,
-                        "     ├─ AnimationClip",
-                        Environment.NewLine,
-                        "     └─ AudioClip"
-                    ), MessageType.Info, true);
-                    if (GUILayout.Button("  Create submenu"))
+                    Dictionary<AnimationClip, AudioClip> dances = new Dictionary<AnimationClip, AudioClip>();
+                    foreach (var danceFolders in AssetDatabase.GetSubFolders(PathDances))
                     {
-                        Dictionary<AnimationClip, AudioClip> dances = new Dictionary<AnimationClip, AudioClip>();
-                        foreach (var danceFolders in AssetDatabase.GetSubFolders(PathDances))
+                        AnimationClip clip = null;
+                        AudioClip aclip = null;
+                        foreach (var asset in AssetDatabase.FindAssets("t:audioclip t:animationclip", new string[] { danceFolders }))
                         {
-                            AnimationClip clip = null;
-                            AudioClip aclip = null;
-                            foreach (var asset in AssetDatabase.FindAssets("t:audioclip t:animationclip", new string[] { danceFolders }))
+                            var path = AssetDatabase.GUIDToAssetPath(asset);
+                            if (path.EndsWith(".anim"))
                             {
-                                var path = AssetDatabase.GUIDToAssetPath(asset);
-                                if (path.EndsWith(".anim"))
-                                {
-                                    clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
-                                }
-                                else
-                                {
-                                    aclip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
-                                }
-                            }
-                            dances.Add(clip, aclip);
-                        }
-                        int used = 1;
-                        var sub = CreateSubMenu(menu, "Dances");
-                        sub.name = "Dances";
-
-                        string[] filter = NameFilter.Split(',');
-
-                        foreach (var dance in dances)
-                        {
-                            if (used != 8)
-                            {
-                                var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
-                                CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                                clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
                             }
                             else
                             {
-                                sub = CreateSubMenu(sub, "Next Page");
-                                used = 2;
-                                var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
-                                CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                                aclip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
                             }
-                            used++;
                         }
-                        EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
-                        AssetDatabase.SaveAssets();
+                        dances.Add(clip, aclip);
                     }
+                    int used = 1;
+                    var sub = CreateSubMenu(menu, "Dances");
+                    sub.name = "Dances";
 
+                    string[] filter = NameFilter.Split(',');
 
+                    foreach (var dance in dances)
+                    {
+                        if (used != 8)
+                        {
+                            var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
+                            CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                        }
+                        else
+                        {
+                            sub = CreateSubMenu(sub, "Next Page");
+                            used = 2;
+                            var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
+                            CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
+                        }
+                        used++;
+                    }
+                    EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
+                    AssetDatabase.SaveAssets();
+                    MainFoldOuts[menu][0] = false;
                 }
             }
-            EditorGUILayout.Space(10f);
-            GUILayout.Label("Controls");
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("Controls", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
 
         string ReplaceAll(string str, string[] strings, string replaceWith)
@@ -1170,14 +1211,14 @@
             return str;
         }
 
-        VRCExpressionsMenu CreateSubMenu(VRCExpressionsMenu menu, string name)
+        VRCExpressionsMenu CreateSubMenu(VRCExpressionsMenu menu, string name, string assetName = "SubMenu")
         {
             VRCExpressionsMenu eMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
 
             if (!AssetDatabase.IsValidFolder(Path.Combine("Assets", "AutoGen")))
                 AssetDatabase.CreateFolder("Assets", "AutoGen");
 
-            string assetPathAndName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGen/SubMenu.asset");
+            string assetPathAndName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGen/{assetName}.asset");
             AssetDatabase.CreateAsset(eMenu, assetPathAndName);
 
             menu.controls.Add(new VRCExpressionsMenu.Control()
@@ -1205,6 +1246,16 @@
             }
         }
 
+        void MoveBack()
+        {
+            if (pages.TryGetValue(currentPage.Menu, out PageModel last))
+            {
+                var toRemove = currentPage.Menu;
+                currentPage = last;
+                pages.Remove(toRemove);
+            }
+        }
+
         void OnGUI()
         {
             if (!AssetDatabase.IsValidFolder("Assets/AutoGen"))
@@ -1214,19 +1265,24 @@
                 GUILayout.Label("Stop playmode to use Expression editor.");
                 return;
             }
-            GUILayout.Label("Avatar", EditorStyles.boldLabel);
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("Avatars", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
             EditorGUILayout.BeginVertical();
             foreach (var avatar in GameObject.FindObjectsOfType<VRCAvatarDescriptor>())
             {
+                if (avatar == vrcAvatar)
+                    GUI.color = Color.green;
                 if (GUILayout.Button(avatar.name))
                 {
                     vrcAvatar = avatar;
+                    currentPage = new PageModel() { Menu = vrcAvatar.expressionsMenu };
                 }
+                GUI.color = Color.white;
             }
-            GUILayout.Label($"Selected {vrcAvatar?.name ?? "NONE"}");
             EditorGUILayout.EndVertical();
-            GUILayout.Space(35f);
-            GUILayout.Label("Expressions menu");
             if (vrcAvatar != null)
             {
                 vrcAvatar.expressionsMenu = (VRCExpressionsMenu)EditorGUILayout.ObjectField("Expressions object", vrcAvatar.expressionsMenu, typeof(VRCExpressionsMenu), true);
@@ -1255,17 +1311,21 @@
                     }
                     return;
                 }
-                if (!scrollViews.ContainsKey(vrcAvatar.expressionsMenu))
-                    scrollViews.Add(vrcAvatar.expressionsMenu, new Vector2(0f, 0f));
-                AddSubmenuPremades(vrcAvatar.expressionsMenu);
-                scrollViews[vrcAvatar.expressionsMenu] = EditorGUILayout.BeginScrollView(scrollViews[vrcAvatar.expressionsMenu]);
-                foreach (var control in vrcAvatar.expressionsMenu.controls.ToArray())
+
+                if (currentPage == null)
+                    return;
+
+                if (!scrollViews.ContainsKey(currentPage.Menu))
+                    scrollViews.Add(currentPage.Menu, new Vector2(0f, 0f));
+                AddSubmenuPremades(currentPage.Menu);
+                scrollViews[currentPage.Menu] = EditorGUILayout.BeginScrollView(scrollViews[currentPage.Menu]);
+                foreach (var control in currentPage.Menu.controls.ToArray())
                 {
-                    CreateFoldable(vrcAvatar.expressionsMenu, control, -2);
+                    CreateFoldable(currentPage.Menu, control, -2);
                 }
                 EditorGUILayout.EndScrollView();
                 EditorGUILayout.Space(10f);
-                AddButtons(vrcAvatar.expressionsMenu);
+                AddButtons(currentPage.Menu);
             }
         }
     }
