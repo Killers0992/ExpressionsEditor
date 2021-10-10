@@ -642,15 +642,27 @@
                         if (!scrollViews.ContainsKey(control.subMenu))
                             scrollViews.Add(control.subMenu, new Vector2(0f, 0f));
 
-                        if (GUILayout.Button("Open"))
+                        if (control.subMenu != null)
                         {
-                            pages.Add(control.subMenu, new PageModel()
+                            if (GUILayout.Button("Open"))
                             {
-                                Control = currentPage.Control,
-                                Menu = menu 
-                            });
-                            currentPage = new PageModel() { Menu = control.subMenu, Control = control };
-                            foldouts[control][0] = false;
+                                pages.Add(control.subMenu, new PageModel()
+                                {
+                                    Control = currentPage.Control,
+                                    Menu = menu
+                                });
+                                currentPage = new PageModel() { Menu = control.subMenu, Control = control };
+                                foldouts[control][0] = false;
+                            }
+                        }
+                        else
+                        {
+                            if (GUILayout.Button("Delete"))
+                            {
+                                menu.controls.Remove(control);
+                                EditorUtility.SetDirty(menu);
+                                AssetDatabase.SaveAssets();
+                            }
                         }
                         EditorGUILayout.Separator();
                     }
