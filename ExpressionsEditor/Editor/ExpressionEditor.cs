@@ -1313,6 +1313,7 @@
 
         void Footer()
         {
+            GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal("box");
             GUILayout.FlexibleSpace();
             GUILayout.Label($"Current version: {CurrentVersion.Version}", EditorStyles.boldLabel);
@@ -1365,6 +1366,12 @@
                     GUI.color = Color.green;
                 if (GUILayout.Button(avatar.name))
                 {
+                    if (vrcAvatar == avatar)
+                    {
+                        vrcAvatar = null;
+                        currentPage = null;
+                        return;
+                    }
                     vrcAvatar = avatar;
                     currentPage = new PageModel() { Menu = vrcAvatar.expressionsMenu };
                 }
@@ -1419,8 +1426,8 @@
                 EditorGUILayout.EndScrollView();
                 EditorGUILayout.Space(10f);
                 AddButtons(currentPage.Menu);
-                Footer();
             }
+            Footer();
         }
     }
 }
