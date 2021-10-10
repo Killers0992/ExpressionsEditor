@@ -11,7 +11,7 @@
     using VRC.SDK3.Avatars.ScriptableObjects;
     using static VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters;
     using static VRC.SDKBase.VRC_AnimatorTrackingControl;
-
+    using System;
 
     public class ExpressionEditor : EditorWindow
     {
@@ -48,7 +48,7 @@
             Dictionary<int, ParamValue> values = new Dictionary<int, ParamValue>() { { -1, new ParamValue() { Name = "None", Index = curIndex } } };
             for (int x = 0; x < vrcAvatar.expressionParameters.parameters.Length; x++)
             {
-                if (vrcAvatar.expressionParameters.parameters[x].valueType != ValueType.Float && rotationOnly)
+                if (vrcAvatar.expressionParameters.parameters[x].valueType != VRCExpressionParameters.ValueType.Float && rotationOnly)
                     continue;
                 curIndex++;
                 values.Add(x, new ParamValue()
@@ -148,18 +148,18 @@
             AssetDatabase.AddObjectToAsset(stateMachine, animator);
 
             float defaultValueFloat = 0f;
-            ValueType valueType = ValueType.Bool;
+            VRCExpressionParameters.ValueType valueType = VRCExpressionParameters.ValueType.Bool;
             switch (defaultValue)
             {
                 case float f:
-                    valueType = ValueType.Float;
+                    valueType = VRCExpressionParameters.ValueType.Float;
                     defaultValueFloat = f;
                     break;
                 case bool b:
                     defaultValueFloat = b ? 1f : 0f;
                     break;
                 case int i:
-                    valueType = ValueType.Int;
+                    valueType = VRCExpressionParameters.ValueType.Int;
                     defaultValueFloat = i;
                     break;
             }
@@ -585,7 +585,7 @@
         }
 
 
-        Parameter GetOrAddParameter(VRCExpressionParameters expressionParameters, string parameterName, float defaultValue, ValueType type)
+        Parameter GetOrAddParameter(VRCExpressionParameters expressionParameters, string parameterName, float defaultValue, VRCExpressionParameters.ValueType type)
         {
             if (defaultValue > 1f)
                 defaultValue = 0f;
@@ -678,10 +678,10 @@
 
                             switch (currentParam.valueType)
                             {
-                                case ValueType.Float:
+                                case VRCExpressionParameters.ValueType.Float:
                                     control.value = EditorGUILayout.FloatField("Value", control.value);
                                     break;
-                                case ValueType.Int:
+                                case VRCExpressionParameters.ValueType.Int:
                                     control.value = EditorGUILayout.IntField("Value", (int)control.value);
                                     break;
                             }
@@ -729,7 +729,7 @@
                                     {
                                         outData.SelectedGameObject.SetActive(outData.isEnabledByDefault);
 
-                                        GetOrAddParameter(vrcAvatar.expressionParameters, $"{outData.ParameterName}T", outData.isEnabledByDefault ? 1 : 0, ValueType.Bool);
+                                        GetOrAddParameter(vrcAvatar.expressionParameters, $"{outData.ParameterName}T", outData.isEnabledByDefault ? 1 : 0, VRCExpressionParameters.ValueType.Bool);
 
                                         control.parameter = new VRCExpressionsMenu.Control.Parameter()
                                         {
@@ -1079,11 +1079,32 @@
             MainFoldOuts[menu][0] = EditorGUILayout.Foldout(MainFoldOuts[menu][0], "Premades");
             if (MainFoldOuts[menu][0])
             {
-                MainFoldOuts[menu][1] = EditorGUILayout.Foldout(MainFoldOuts[menu][1], "Dances folder");
+                MainFoldOuts[menu][1] = EditorGUILayout.Foldout(MainFoldOuts[menu][1], "  Dances folder");
                 if (MainFoldOuts[menu][1])
                 {
-                    PathDances = EditorGUILayout.TextField("Path", PathDances);
-                    if (GUILayout.Button("Create submenu"))
+                    NameFilter = EditorGUILayout.TextField("  Name filter", NameFilter);
+                    EditorGUILayout.HelpBox(string.Concat(
+                        "Filter name of animationclips and use them as button names",
+                        Environment.NewLine,
+                        "Example: Animation clip with name Dance1BestDance and using Dance1 as filter",
+                        Environment.NewLine,
+                        "Will replace that name to just BestDance",
+                        Environment.NewLine,
+                        "( More filters are seperated by , )"
+                    ), MessageType.Info, true);
+                    PathDances = EditorGUILayout.TextField("  Path", PathDances);
+                    EditorGUILayout.HelpBox(string.Concat(
+                        "Path which will contain folders of dances",
+                        Environment.NewLine,
+                        $"{PathDances}/",
+                        Environment.NewLine,
+                        "└─ Dance1 /",
+                        Environment.NewLine,
+                        "     ├─ AnimationClip",
+                        Environment.NewLine,
+                        "     └─ AudioClip"
+                    ), MessageType.Info, true);
+                    if (GUILayout.Button("  Create submenu"))
                     {
                         Dictionary<AnimationClip, AudioClip> dances = new Dictionary<AnimationClip, AudioClip>();
                         foreach (var danceFolders in AssetDatabase.GetSubFolders(PathDances))
@@ -1107,18 +1128,21 @@
                         int used = 1;
                         var sub = CreateSubMenu(menu, "Dances");
                         sub.name = "Dances";
+
+                        string[] filter = NameFilter.Split(',');
+
                         foreach (var dance in dances)
                         {
-                            if (used != 8)
+                            if (used != 9)
                             {
-                                var toggle = AddToggle(sub, dance.Key.name);
+                                var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
                                 CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
                             }
                             else
                             {
                                 sub = CreateSubMenu(sub, "Next Page");
                                 used = 2;
-                                var toggle = AddToggle(sub, dance.Key.name);
+                                var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
                                 CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
                             }
                             used++;
@@ -1132,6 +1156,15 @@
             }
             EditorGUILayout.Space(10f);
             GUILayout.Label("Controls");
+        }
+
+        string ReplaceAll(string str, string[] strings, string replaceWith)
+        {
+            foreach(var st in strings)
+            {
+                str = str.Replace(st, replaceWith);
+            }
+            return str;
         }
 
         VRCExpressionsMenu CreateSubMenu(VRCExpressionsMenu menu, string name)
@@ -1169,6 +1202,7 @@
             }
         }
 
+        string NameFilter = "";
         string PathDances = "Assets/Dances";
         Dictionary<VRCExpressionsMenu, List<bool>> MainFoldOuts { get; set; } = new Dictionary<VRCExpressionsMenu, List<bool>>();
 
