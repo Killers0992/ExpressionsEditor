@@ -15,12 +15,15 @@
 
     public class ExpressionEditor : EditorWindow
     {
+        string NameFilter = "";
+        string PathDances = "Assets/Dances";
         VRCAvatarDescriptor vrcAvatar = null;
         Dictionary<int, ParamValue> parameters = new Dictionary<int, ParamValue>();
         Dictionary<int, ParamValue> rotationParameters = new Dictionary<int, ParamValue>();
-        Dictionary<VRCExpressionsMenu.Control, List<int>> selectedIndexes = new Dictionary<VRCExpressionsMenu.Control, List<int>>();
-        Dictionary<VRCExpressionsMenu, Vector2> scrollViews = new Dictionary<VRCExpressionsMenu, Vector2>();
-        Dictionary<VRCExpressionsMenu.Control, List<bool>> foldouts = new Dictionary<VRCExpressionsMenu.Control, List<bool>>();
+        Dictionary<VRCExpressionsMenu, List<bool>> MainFoldOuts { get; set; } = new Dictionary<VRCExpressionsMenu, List<bool>>();
+        readonly Dictionary<VRCExpressionsMenu.Control, List<int>> selectedIndexes = new Dictionary<VRCExpressionsMenu.Control, List<int>>();
+        readonly Dictionary<VRCExpressionsMenu, Vector2> scrollViews = new Dictionary<VRCExpressionsMenu, Vector2>();
+        readonly Dictionary<VRCExpressionsMenu.Control, List<bool>> foldouts = new Dictionary<VRCExpressionsMenu.Control, List<bool>>();
         Dictionary<VRCExpressionsMenu.Control, Dictionary<int, TempData>> tempdatas { get; set; } = new Dictionary<VRCExpressionsMenu.Control, Dictionary<int, TempData>>();
 
         [MenuItem("ExpressionEditor/Open Editor")]
@@ -139,11 +142,11 @@
         {
             GetOrAddParameter(animator, defaultValue is bool ? $"{parameterName}T" : parameterName, defaultValue);
 
-            animator.RemoveLayerIfExists(selectedObject.name);
+            animator.RemoveLayerIfExists(defaultValue is bool ? parameterName : selectedObject.name);
 
             var stateMachine = new AnimatorStateMachine()
             {
-                name = selectedObject.name
+                name = defaultValue is bool ? parameterName : selectedObject.name
             };
             AssetDatabase.AddObjectToAsset(stateMachine, animator);
 
@@ -169,7 +172,7 @@
             animator.AddLayer(new AnimatorControllerLayer()
             {
                 defaultWeight = 1f,
-                name = selectedObject.name,
+                name = defaultValue is bool ? parameterName : selectedObject.name,
                 stateMachine = stateMachine
             });
 
@@ -1201,10 +1204,6 @@
                 AssetDatabase.SaveAssets();
             }
         }
-
-        string NameFilter = "";
-        string PathDances = "Assets/Dances";
-        Dictionary<VRCExpressionsMenu, List<bool>> MainFoldOuts { get; set; } = new Dictionary<VRCExpressionsMenu, List<bool>>();
 
         void OnGUI()
         {
