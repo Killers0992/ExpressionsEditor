@@ -12,12 +12,16 @@
     using static VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters;
     using static VRC.SDKBase.VRC_AnimatorTrackingControl;
     using System;
+    using System.Net;
 
     public class ExpressionEditor : EditorWindow
     {
         PageModel currentPage;
         string NameFilter = "";
         string PathDances = "Assets/Dances";
+        static bool CanUpdate = false;
+        static VersionModel CurrentVersion = new VersionModel();
+        static VersionModel LatestVersion = new VersionModel();
         VRCAvatarDescriptor vrcAvatar = null;
         readonly Dictionary<VRCExpressionsMenu, PageModel> pages = new Dictionary<VRCExpressionsMenu, PageModel>();
         Dictionary<int, ParamValue> parameters = new Dictionary<int, ParamValue>();
@@ -33,6 +37,36 @@
         {
             ExpressionEditor window = (ExpressionEditor)EditorWindow.GetWindow(typeof(ExpressionEditor), false, "ExpressionEditor");
             window.Show();
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/ExpressionsEditor/version.json");
+            
+            
+            foreach(var thing in JsonUtility.FromJson<Dictionary<string, object>>(asset.text))
+            {
+                Debug.Log(thing.Key);
+            }
+
+            CurrentVersion = JsonUtility.FromJson<VersionModel>(asset.text);
+            CheckUpdate();
+            if (!AssetDatabase.IsValidFolder("Assets/AutoGen"))
+                AssetDatabase.CreateFolder("Assets", "AutoGen");
+        }
+
+        static void CheckUpdate()
+        {
+            LatestVersion = GetLatestVersion();
+            if (LatestVersion.Ver.CompareTo(CurrentVersion.Ver) > 0)
+                CanUpdate = true;
+        }
+
+        static VersionModel GetLatestVersion()
+        {
+            using(var web = new WebClient())
+            {
+                var str = web.DownloadString("https://raw.githubusercontent.com/Killers0992/ExpressionsEditor/main/ExpressionsEditor/version.json");
+                if (!str.Contains("404"))
+                    return JsonUtility.FromJson<VersionModel>(str);
+            }
+            return new VersionModel();
         }
 
         string GetSpaces(int num)
@@ -1167,24 +1201,27 @@
                         {
                             var path = AssetDatabase.GUIDToAssetPath(asset);
                             if (path.EndsWith(".anim"))
-                            {
                                 clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
-                            }
                             else
-                            {
                                 aclip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
-                            }
                         }
+
+                        if (clip == null)
+                            continue;
+
                         dances.Add(clip, aclip);
                     }
                     int used = 1;
+                    int current = 0;
                     var sub = CreateSubMenu(menu, "Dances");
                     sub.name = "Dances";
 
                     string[] filter = NameFilter.Split(',');
-
+                    Rect r = EditorGUILayout.BeginVertical();
                     foreach (var dance in dances)
                     {
+                        EditorGUI.ProgressBar(r, current / dances.Count, $"Dance {current}/{dances.Count}");
+                        GUILayout.Space(18);
                         if (used != 8)
                         {
                             var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
@@ -1197,8 +1234,10 @@
                             var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
                             CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
                         }
+                        current++;
                         used++;
                     }
+                    EditorGUILayout.EndVertical();
                     EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
                     AssetDatabase.SaveAssets();
                     MainFoldOuts[menu][0] = false;
@@ -1270,13 +1309,39 @@
             }
         }
 
+        void Footer()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label($"Current version: {CurrentVersion.Version}", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            if (CanUpdate)
+            {
+                if (GUILayout.Button("Download Update"))
+                {
+                    Debug.Log($"Downloading ExpressionEditor version {LatestVersion.Version} !");
+                    using (var web = new WebClient())
+                    {
+                        web.DownloadFile($"https://github.com/Killers0992/ExpressionsEditor/releases/download/{LatestVersion.Version}/ExpressionsEditor.unitypackage", Path.Combine(Application.dataPath, "ExpressionsEditor.unitypackage"));
+                    }
+                    Debug.Log($"Downloaded ExpressionEditor version {LatestVersion.Version} !");
+                    AssetDatabase.ImportPackage(Path.Combine(Application.dataPath, "ExpressionsEditor.unitypackage"), true);
+                    AssetDatabase.DeleteAsset("Assets/ExpressionsEditor.unitypackage");
+                }
+                GUILayout.FlexibleSpace();
+            }
+            GUILayout.Label($"Latest version: {LatestVersion.Version}", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+
         void OnGUI()
         {
-            if (!AssetDatabase.IsValidFolder("Assets/AutoGen"))
-                AssetDatabase.CreateFolder("Assets", "AutoGen");
             if (Application.isPlaying)
             {
                 GUILayout.Label("Stop playmode to use Expression editor.");
+                Footer();
                 return;
             }
             GUILayout.BeginHorizontal("box");
@@ -1302,7 +1367,7 @@
                 vrcAvatar.expressionsMenu = (VRCExpressionsMenu)EditorGUILayout.ObjectField("Expressions object", vrcAvatar.expressionsMenu, typeof(VRCExpressionsMenu), true);
                 if (vrcAvatar.expressionsMenu == null)
                 {
-                    GUILayout.Label("Expressions menu on your avatar is null do you want to create one?");
+                    GUILayout.Label("Expressions menu on your avatar is missing do you want to create one?");
                     if (GUILayout.Button("Create"))
                     {
                         VRCExpressionsMenu menu = new VRCExpressionsMenu();
@@ -1310,12 +1375,13 @@
                         AssetDatabase.CreateAsset(menu, assetPathAndName);
                         vrcAvatar.expressionsMenu = menu;
                     }
+                    Footer();
                     return;
                 }
                 vrcAvatar.expressionParameters = (VRCExpressionParameters)EditorGUILayout.ObjectField("Parameters object", vrcAvatar.expressionParameters, typeof(VRCExpressionParameters), true);
                 if (vrcAvatar.expressionParameters == null)
                 {
-                    GUILayout.Label("Expressions parameters on your avatar is null do you want to create one?");
+                    GUILayout.Label("Expressions parameters on your avatar is missing do you want to create one?");
                     if (GUILayout.Button("Create"))
                     {
                         VRCExpressionParameters menu = new VRCExpressionParameters();
@@ -1323,11 +1389,15 @@
                         AssetDatabase.CreateAsset(menu, assetPathAndName);
                         vrcAvatar.expressionParameters = menu;
                     }
+                    Footer();
                     return;
                 }
 
                 if (currentPage == null)
+                {
+                    Footer();
                     return;
+                }
 
                 if (!scrollViews.ContainsKey(currentPage.Menu))
                     scrollViews.Add(currentPage.Menu, new Vector2(0f, 0f));
@@ -1340,6 +1410,7 @@
                 EditorGUILayout.EndScrollView();
                 EditorGUILayout.Space(10f);
                 AddButtons(currentPage.Menu);
+                Footer();
             }
         }
     }
