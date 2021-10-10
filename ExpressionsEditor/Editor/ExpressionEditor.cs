@@ -639,9 +639,6 @@
                     if (isShow)
                     {
                         control.subMenu = (VRCExpressionsMenu)EditorGUILayout.ObjectField($"{GetSpaces(num + 2)}Menu object", control.subMenu, typeof(VRCExpressionsMenu), true);
-                        if (!scrollViews.ContainsKey(control.subMenu))
-                            scrollViews.Add(control.subMenu, new Vector2(0f, 0f));
-
                         if (control.subMenu != null)
                         {
                             if (GUILayout.Button("Open"))
