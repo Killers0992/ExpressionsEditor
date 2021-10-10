@@ -1253,6 +1253,11 @@
                 EditorUtility.SetDirty(vrcAvatar.expressionsMenu);
                 AssetDatabase.SaveAssets();
             }
+            if (currentPage?.Menu != null)
+            {
+                EditorUtility.SetDirty(currentPage.Menu);
+                AssetDatabase.SaveAssets();
+            }
         }
 
         void MoveBack()
