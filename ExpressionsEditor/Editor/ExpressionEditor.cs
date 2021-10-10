@@ -1193,7 +1193,7 @@
                         else
                         {
                             sub = CreateSubMenu(sub, "Next Page");
-                            used = 2;
+                            used = 1;
                             var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
                             CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
                         }
