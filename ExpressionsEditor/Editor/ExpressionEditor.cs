@@ -56,6 +56,8 @@
             LatestVersion = GetLatestVersion();
             if (LatestVersion.Ver.CompareTo(CurrentVersion.Ver) > 0)
                 CanUpdate = true;
+            else
+                CanUpdate = false;
         }
 
         static VersionModel GetLatestVersion()
@@ -1327,9 +1329,15 @@
                     Debug.Log($"Downloaded ExpressionEditor version {LatestVersion.Version} !");
                     AssetDatabase.ImportPackage(Path.Combine(Application.dataPath, "ExpressionsEditor.unitypackage"), true);
                     AssetDatabase.DeleteAsset("Assets/ExpressionsEditor.unitypackage");
+                    CurrentVersion = LatestVersion;
                 }
-                GUILayout.FlexibleSpace();
             }
+            else
+            {
+                if (GUILayout.Button("Check Update"))
+                    CheckUpdate();
+            }
+            GUILayout.FlexibleSpace();
             GUILayout.Label($"Latest version: {LatestVersion.Version}", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
