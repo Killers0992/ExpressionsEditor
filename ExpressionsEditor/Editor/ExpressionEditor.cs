@@ -1330,6 +1330,7 @@
                     AssetDatabase.ImportPackage(Path.Combine(Application.dataPath, "ExpressionsEditor.unitypackage"), true);
                     AssetDatabase.DeleteAsset("Assets/ExpressionsEditor.unitypackage");
                     CurrentVersion = LatestVersion;
+                    CanUpdate = false;
                 }
             }
             else
