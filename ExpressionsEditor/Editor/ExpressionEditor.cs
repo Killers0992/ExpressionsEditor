@@ -1133,7 +1133,7 @@
 
                         foreach (var dance in dances)
                         {
-                            if (used != 9)
+                            if (used != 8)
                             {
                                 var toggle = AddToggle(sub, ReplaceAll(dance.Key.name, filter, ""));
                                 CreateDanceAnimation(toggle, dance.Key, dance.Value, true);
