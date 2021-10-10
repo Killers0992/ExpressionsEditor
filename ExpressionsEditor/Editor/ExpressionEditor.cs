@@ -1030,7 +1030,7 @@
         {
             GUILayout.Label($"Add new");
             EditorGUILayout.BeginHorizontal();
-            if (menu.controls.Count <= 8)
+            if (menu.controls.Count < 8)
             {
                 if (GUILayout.Button("Button"))
                 {
