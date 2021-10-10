@@ -16,12 +16,12 @@
 
     public class ExpressionEditor : EditorWindow
     {
-        PageModel currentPage;
+        PageModel currentPage = null;
         string NameFilter = "";
         string PathDances = "Assets/Dances";
         static bool CanUpdate = false;
-        static VersionModel CurrentVersion = new VersionModel();
-        static VersionModel LatestVersion = new VersionModel();
+        static VersionModel CurrentVersion;
+        static VersionModel LatestVersion;
         VRCAvatarDescriptor vrcAvatar = null;
         readonly Dictionary<VRCExpressionsMenu, PageModel> pages = new Dictionary<VRCExpressionsMenu, PageModel>();
         Dictionary<int, ParamValue> parameters = new Dictionary<int, ParamValue>();
@@ -36,23 +36,16 @@
         static void Init()
         {
             ExpressionEditor window = (ExpressionEditor)EditorWindow.GetWindow(typeof(ExpressionEditor), false, "ExpressionEditor");
-            window.Show();
-            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/ExpressionsEditor/version.json");
-            
-            
-            foreach(var thing in JsonUtility.FromJson<Dictionary<string, object>>(asset.text))
-            {
-                Debug.Log(thing.Key);
-            }
-
-            CurrentVersion = JsonUtility.FromJson<VersionModel>(asset.text);
             CheckUpdate();
+            window.Show();
             if (!AssetDatabase.IsValidFolder("Assets/AutoGen"))
                 AssetDatabase.CreateFolder("Assets", "AutoGen");
         }
 
         static void CheckUpdate()
         {
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/ExpressionsEditor/version.json");
+            CurrentVersion = JsonUtility.FromJson<VersionModel>(asset.text);
             LatestVersion = GetLatestVersion();
             if (LatestVersion.Ver.CompareTo(CurrentVersion.Ver) > 0)
                 CanUpdate = true;
@@ -1313,7 +1306,8 @@
 
         void Footer()
         {
-            GUILayout.FlexibleSpace();
+            if (vrcAvatar == null)
+                GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal("box");
             GUILayout.FlexibleSpace();
             GUILayout.Label($"Current version: {CurrentVersion.Version}", EditorStyles.boldLabel);
@@ -1425,6 +1419,7 @@
                 }
                 EditorGUILayout.EndScrollView();
                 EditorGUILayout.Space(10f);
+                GUILayout.FlexibleSpace();
                 AddButtons(currentPage.Menu);
             }
             Footer();
