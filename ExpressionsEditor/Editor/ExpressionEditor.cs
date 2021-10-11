@@ -972,7 +972,7 @@
                     }
                     break;
                 case VRCExpressionsMenu.Control.ControlType.RadialPuppet:
-                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}Radial Puppet");
+                    foldouts[control][0] = EditorGUILayout.Foldout(isShow, $"{GetSpaces(num + 2)}{control.name} (Radial Puppet)");
                     if (isShow)
                     {
                         AddControlButtons(menu, control);
