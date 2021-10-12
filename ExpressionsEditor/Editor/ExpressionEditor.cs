@@ -271,11 +271,13 @@
             clip.wrapMode = WrapMode.Loop;
 
             var curve = new AnimationCurve(new Keyframe[1] { new Keyframe(0, state ? 1 : 0) });
-            var path = selectedObject.transform.GetPath().Replace(vrcAvatar.transform.GetPath(), "").Remove(0, 1);
+            string path = selectedObject.transform.GetPath().Replace(vrcAvatar.transform.GetPath(), "").Remove(0, 1);
+
             if (selectedObject.TryGetComponent<SkinnedMeshRenderer>(out _))
                 clip.SetCurve(path, typeof(SkinnedMeshRenderer), "m_Enabled", curve);
             else
                 clip.SetCurve(path, typeof(GameObject), "m_IsActive", curve);
+
             AssetDatabase.CreateAsset(clip, $"Assets/AutoGen/{$"{name}_{(state ? "ON" : "OFF")}"}.anim");
             return clip;
         }     
@@ -335,7 +337,9 @@
 
                     var newTransition = new AnimatorStateTransition()
                     {
-                        destinationState = eeState
+                        destinationState = eeState,
+                        hasExitTime = false,
+                        hasFixedDuration = true,
                     };
                     aaState.AddTransition(newTransition);
                     AssetDatabase.AddObjectToAsset(newTransition, aaState);
@@ -485,6 +489,7 @@
                         {
                             destinationState = newAnim,
                             hasExitTime = false,
+                            hasFixedDuration = true,
                             conditions = new AnimatorCondition[]
                             {
                                 new AnimatorCondition()
@@ -502,6 +507,7 @@
                         {
                             destinationState = blendout,
                             hasExitTime = false,
+                            hasFixedDuration = true,
                             conditions = new AnimatorCondition[]
                             {
                                 new AnimatorCondition()
@@ -534,6 +540,8 @@
 
                     var newTransition = new AnimatorStateTransition()
                     {
+                        hasFixedDuration = true,
+                        exitTime = 0.1f,
                         destinationState = resetTrack,
                     };
                     blendout.AddTransition(newTransition);
@@ -751,6 +759,9 @@
                         if (foldouts[control].Count == 2)
                             foldouts[control].Add(false);
 
+                        if (foldouts[control].Count == 3)
+                            foldouts[control].Add(false);
+
                         foldouts[control][1] = EditorGUILayout.Foldout(foldouts[control][1], "Toggle gameobject");
                         if (foldouts[control][1])
                         {
@@ -771,7 +782,8 @@
                                     {
                                         outData.SelectedGameObject.SetActive(outData.isEnabledByDefault);
 
-                                        GetOrAddParameter(vrcAvatar.expressionParameters, $"{outData.ParameterName}T", outData.isEnabledByDefault ? 1 : 0, VRCExpressionParameters.ValueType.Bool);
+                                        if (vrcAvatar.baseAnimationLayers[4].animatorController is AnimatorController ac)
+                                            CreateGameObjectToggle(vrcAvatar.expressionParameters, ac, outData.SelectedGameObject, outData.ParameterName, outData.isEnabledByDefault);
 
                                         control.parameter = new VRCExpressionsMenu.Control.Parameter()
                                         {
@@ -780,11 +792,7 @@
 
                                         parameters = GetParams();
                                         selectedIndexes[control][0] = GetIndexOfParam(control.parameter);
-                                        
-                                        if (vrcAvatar.baseAnimationLayers[4].animatorController is AnimatorController ac)
-                                        {
-                                            CreateGameObjectToggle(vrcAvatar.expressionParameters, ac, outData.SelectedGameObject, outData.ParameterName, outData.isEnabledByDefault);
-                                        }
+
                                         foldouts[control][1] = false;
                                         tempdatas[control].Remove(0);
                                     }
@@ -835,6 +843,8 @@
                                     dataOut.Remove(1);
                             }
                         }
+
+
                         EditorGUILayout.EndVertical();
 
                         if (!selectedIndexes.ContainsKey(control))
@@ -982,9 +992,9 @@
 
                         if (!selectedIndexes.ContainsKey(control))
                             selectedIndexes.Add(control, new List<int>()
-                        {
-                            GetIndexOfParam(control.subParameters[0], true)
-                        });
+                            {
+                                GetIndexOfParam(control.subParameters[0], true)
+                            });
 
                         control.name = EditorGUILayout.TextField($"{GetSpaces(num + 2)}Name", control.name);
                         control.icon = (Texture2D)EditorGUILayout.ObjectField($"{GetSpaces(num + 2)}Icon", control.icon, typeof(Texture2D), true);
@@ -1303,11 +1313,16 @@
                 pages.Remove(toRemove);
             }
         }
-
+                        
         void Footer()
         {
             if (vrcAvatar == null)
                 GUILayout.FlexibleSpace();
+            if (CurrentVersion == null)
+            {
+                CheckUpdate();
+                vrcAvatar = null;
+            }
             GUILayout.BeginHorizontal("box");
             GUILayout.FlexibleSpace();
             GUILayout.Label($"Current version: {CurrentVersion.Version}", EditorStyles.boldLabel);
