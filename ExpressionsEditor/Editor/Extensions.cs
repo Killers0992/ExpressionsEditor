@@ -97,6 +97,9 @@
 
         public static AnimatorControllerParameter GetOrAddParameter(this AnimatorController animator, string parameterName, object defaultValue)
         {
+            if (parameterName.ToLower() == "vrcemote")
+                defaultValue = 0;
+
             var foundParam = animator.parameters.FirstOrDefault(p => p.name == parameterName);
             AnimatorControllerParameterType type = AnimatorControllerParameterType.Bool;
             switch (defaultValue)
@@ -195,7 +198,7 @@
 
         public static bool CreateGameObjectToggle(this GameObject gameObject, VRCAvatarDescriptor vrcAvatar, AnimatorController animator,  string parameterName, object defaultValue)
         {
-            GetOrAddParameter(animator, defaultValue is bool ? $"{parameterName}T" : parameterName, defaultValue);
+            animator.GetOrAddParameter(defaultValue is bool ? $"{parameterName}T" : parameterName, defaultValue);
 
             animator.RemoveLayerIfExists(defaultValue is bool ? parameterName : gameObject.name);
 
