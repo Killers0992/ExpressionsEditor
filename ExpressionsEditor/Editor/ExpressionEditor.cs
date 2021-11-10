@@ -16,6 +16,12 @@
 
     public class ExpressionEditor : EditorWindow
     {
+        public AudioClip SelectedAudioClip;
+        public AnimationClip SelectedAnimationClip;
+        public GameObject[] SelectedGameObjects = new GameObject[1];
+        public bool IsEnabledByDefault;
+        public string ParameterName;
+
         PageModel currentPage = null;
         string NameFilter = "";
         string PathDances = "Assets/Dances";
@@ -30,7 +36,6 @@
         public static readonly Dictionary<VRCExpressionsMenu.Control, List<int>> selectedIndexes = new Dictionary<VRCExpressionsMenu.Control, List<int>>();
         readonly Dictionary<VRCExpressionsMenu, Vector2> scrollViews = new Dictionary<VRCExpressionsMenu, Vector2>();
         readonly Dictionary<VRCExpressionsMenu.Control, List<bool>> foldouts = new Dictionary<VRCExpressionsMenu.Control, List<bool>>();
-        Dictionary<VRCExpressionsMenu.Control, Dictionary<int, TempData>> tempdatas { get; set; } = new Dictionary<VRCExpressionsMenu.Control, Dictionary<int, TempData>>();
 
         [MenuItem("ExpressionEditor/Open Editor")]
         static void Init()
@@ -60,6 +65,15 @@
                     return JsonUtility.FromJson<VersionModel>(str);
             }
             return new VersionModel();
+        }
+
+        void Reset()
+        {
+            SelectedAudioClip = null;
+            SelectedAnimationClip = null;
+            SelectedGameObjects = new GameObject[1];
+            IsEnabledByDefault = false;
+            ParameterName = "";
         }
 
         void CreateFoldable(VRCExpressionsMenu menu, VRCExpressionsMenu.Control control, int num)
@@ -174,109 +188,86 @@
                         foldouts[control][1] = EditorGUILayout.Foldout(foldouts[control][1], "Toggle gameobject");
                         if (foldouts[control][1])
                         {
-                            if (!tempdatas.ContainsKey(control))
-                                tempdatas.Add(control, new Dictionary<int, TempData>());
+                            SerializedObject serialObj = new SerializedObject(this);
+                            SerializedProperty serialProp = serialObj.FindProperty("SelectedGameObjects");
+                            serialProp.isExpanded = true;
+                            EditorGUILayout.PropertyField(serialProp, true);
+                            serialObj.ApplyModifiedProperties();
 
-                            if (!tempdatas[control].ContainsKey(0))
-                                tempdatas[control].Add(0, new TempData());
-
-                            if (tempdatas[control].TryGetValue(0, out TempData outData))
+                            IsEnabledByDefault = EditorGUILayout.Toggle("Enabled by default", IsEnabledByDefault);
+                            ParameterName = EditorGUILayout.TextField("Parameter name", ParameterName);
+                            if (GUILayout.Button("Create"))
                             {
-                                outData.SelectedGameObject = (GameObject)EditorGUILayout.ObjectField("Select gameobject", outData.SelectedGameObject, typeof(GameObject), true);
-                                outData.isEnabledByDefault = EditorGUILayout.Toggle("Enabled by default", outData.isEnabledByDefault);
-                                outData.ParameterName = EditorGUILayout.TextField("Parameter name", outData.ParameterName);
-                                if (GUILayout.Button("Create"))
+                                if (SelectedGameObjects.Length != 0)
                                 {
-                                    if (outData.SelectedGameObject != null)
+                                    foreach(var gb in SelectedGameObjects)
                                     {
-                                        outData.SelectedGameObject.SetActive(outData.isEnabledByDefault);
+                                        if (gb.TryGetComponent<SkinnedMeshRenderer>(out SkinnedMeshRenderer meshRender))
+                                            meshRender.enabled = IsEnabledByDefault;
+                                        else
+                                            gb.SetActive(IsEnabledByDefault);
 
-                                        if (CurrentSelectedAvatar.baseAnimationLayers[4].animatorController == null)
+                                    }
+
+                                    if (CurrentSelectedAvatar.baseAnimationLayers[4].animatorController == null)
+                                    {
+                                        if (EditorUtility.DisplayDialog("Missing animator controller in avatar", $"Do you want to create animator controller for FX?", "Create"))
                                         {
-                                            if (EditorUtility.DisplayDialog("Missing animator controller in avatar", $"Do you want to create animator controller for FX?", "Create"))
-                                            {
-                                                if (!AssetDatabase.IsValidFolder("Assets/AutoGenerated"))
-                                                    AssetDatabase.CreateFolder("Assets", "AutoGenerated");
+                                            if (!AssetDatabase.IsValidFolder("Assets/AutoGenerated"))
+                                                AssetDatabase.CreateFolder("Assets", "AutoGenerated");
 
-                                                if (!AssetDatabase.IsValidFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}"))
-                                                    AssetDatabase.CreateFolder("Assets/AutoGenerated", $"{CurrentSelectedAvatar.gameObject.name}");
+                                            if (!AssetDatabase.IsValidFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}"))
+                                                AssetDatabase.CreateFolder("Assets/AutoGenerated", $"{CurrentSelectedAvatar.gameObject.name}");
 
-                                                if (!AssetDatabase.IsValidFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}/Controllers"))
-                                                    AssetDatabase.CreateFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}", "Controllers");
+                                            if (!AssetDatabase.IsValidFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}/Controllers"))
+                                                AssetDatabase.CreateFolder($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}", "Controllers");
 
-                                                var assetName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}/Controllers/FX_AnimatorController.controller");
+                                            var assetName = AssetDatabase.GenerateUniqueAssetPath($"Assets/AutoGenerated/{CurrentSelectedAvatar.gameObject.name}/Controllers/FX_AnimatorController.controller");
 
-                                                var gestures = new AnimatorController();
-                                                AssetDatabase.CreateAsset(gestures, assetName);
+                                            var gestures = new AnimatorController();
+                                            AssetDatabase.CreateAsset(gestures, assetName);
 
-                                                CurrentSelectedAvatar.baseAnimationLayers[4].isDefault = false;
-                                                CurrentSelectedAvatar.baseAnimationLayers[4].animatorController = AssetDatabase.LoadAssetAtPath<AnimatorController>(assetName);
-                                            }
+                                            CurrentSelectedAvatar.baseAnimationLayers[4].isDefault = false;
+                                            CurrentSelectedAvatar.baseAnimationLayers[4].animatorController = AssetDatabase.LoadAssetAtPath<AnimatorController>(assetName);
                                         }
-
-
-                                        if (CurrentSelectedAvatar.baseAnimationLayers[4].animatorController is AnimatorController ac)
-                                            outData.SelectedGameObject.CreateGameObjectToggle(CurrentSelectedAvatar, ac, outData.ParameterName, outData.isEnabledByDefault);
-
-                                        control.parameter = new VRCExpressionsMenu.Control.Parameter()
-                                        {
-                                            name = $"{outData.ParameterName}T"
-                                        };
-
-                                        parameters = Extensions.GetParams();
-                                        selectedIndexes[control][0] = control.parameter.GetIndex();
-
-                                        foldouts[control][1] = false;
-                                        tempdatas[control].Remove(0);
                                     }
-                                    else
+
+
+                                    if (CurrentSelectedAvatar.baseAnimationLayers[4].animatorController is AnimatorController ac)
+                                        SelectedGameObjects.CreateGameObjectToggle(CurrentSelectedAvatar, ac, ParameterName, IsEnabledByDefault);
+
+                                    control.parameter = new VRCExpressionsMenu.Control.Parameter()
                                     {
-                                        Debug.Log("OBJECT IS NULL");
-                                    }
+                                        name = $"{ParameterName}T"
+                                    };
+
+                                    parameters = Extensions.GetParams();
+                                    selectedIndexes[control][0] = control.parameter.GetIndex();
+
+                                    foldouts[control][1] = false;
+                                    Reset();
                                 }
-                            }
-                        }
-                        else
-                        {
-                            if (tempdatas.TryGetValue(control, out Dictionary<int, TempData> dataOut))
-                            {
-                                if (dataOut.ContainsKey(0))
-                                    dataOut.Remove(0);
+                                else
+                                {
+                                    Debug.LogError("Any object is not selected!");
+                                }
                             }
                         }
 
                         foldouts[control][2] = EditorGUILayout.Foldout(foldouts[control][2], "Dance");
                         if (foldouts[control][2])
                         {
-                            if (!tempdatas.ContainsKey(control))
-                                tempdatas.Add(control, new Dictionary<int, TempData>());
-
-                            if (!tempdatas[control].ContainsKey(1))
-                                tempdatas[control].Add(1, new TempData());
-
-                            if (tempdatas[control].TryGetValue(1, out TempData outData))
+                            SelectedAnimationClip = (AnimationClip)EditorGUILayout.ObjectField("Select animation", SelectedAnimationClip, typeof(AnimationClip), true);
+                            SelectedAudioClip = (AudioClip)EditorGUILayout.ObjectField("Select song", SelectedAudioClip, typeof(AudioClip), true);
+                            if (GUILayout.Button("Create"))
                             {
-                                outData.SelectedAnimationClip = (AnimationClip)EditorGUILayout.ObjectField("Select animation", outData.SelectedAnimationClip, typeof(AnimationClip), true);
-                                outData.SelectedAudioClip = (AudioClip)EditorGUILayout.ObjectField("Select song", outData.SelectedAudioClip, typeof(AudioClip), true);
-                                if (GUILayout.Button("Create"))
+                                if (control.CreateDanceAnimation(CurrentSelectedAvatar, SelectedAnimationClip, SelectedAudioClip))
                                 {
-                                    if (control.CreateDanceAnimation(CurrentSelectedAvatar, outData.SelectedAnimationClip, outData.SelectedAudioClip))
-                                    {
-                                        foldouts[control][2] = false;
-                                        tempdatas[control].Remove(1);
-                                    }
+                                    foldouts[control][2] = false;
+                                    Reset();
                                 }
                             }
                         }
-                        else
-                        {
-                            if (tempdatas.TryGetValue(control, out Dictionary<int, TempData> dataOut))
-                            {
-                                if (dataOut.ContainsKey(1))
-                                    dataOut.Remove(1);
-                            }
-                        }
-
 
                         EditorGUILayout.EndVertical();
 
