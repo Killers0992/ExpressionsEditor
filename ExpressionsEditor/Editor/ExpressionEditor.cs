@@ -631,7 +631,6 @@
                         DestroyImmediate(wT);
                     }
 
-                    var avatraCloningMenu = menu.CreateSubMenu("Avatar Cloning");
 
                     var avatarCloning = CurrentSelectedAvatar.gameObject.GetOrAddGameobject("AvatarCloning");
 
@@ -680,10 +679,20 @@
                         }
                     }
 
+                    int used = 1;
+                    var subMenu = menu.CreateSubMenu("Avatar Cloning");
+
                     for (int x = 0; x < AmountOfClonableAvatars; x++)
                     {
                         var avatarClone = avatars.GetOrAddGameobject($"Avatar[{x}]");
-                        var avatarmenu = avatraCloningMenu.CreateSubMenu($"Avatar {x + 1}");
+
+                        if (used == 8)
+                        {
+                            subMenu = subMenu.CreateSubMenu("Next Page");
+                            used = 1;
+                        }
+
+                        var avatarmenu = subMenu.CreateSubMenu($"Avatar {x + 1}");
                         var showCloneToggle = avatarmenu.AddToggle("Show Clone");
                         var avatarInWorld = avatarmenu.AddToggle("In World");
                         var freezeAvatar = avatarmenu.AddToggle("Freeze");
@@ -757,6 +766,8 @@
                             sourceTransform = CurrentSelectedAvatar.transform,
                             weight = 1f,
                         });
+                        used++;
+
                     }
                     MainFoldOuts[menu][1] = false;
                 }
