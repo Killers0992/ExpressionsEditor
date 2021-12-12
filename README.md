@@ -2,7 +2,7 @@
  
 Easily edit your expressions via menu.
 
-[![IMAGE ALT TEXT](https://i.imgur.com/lNvOfBw.png)](https://www.youtube.com/watch?v=bSy8SgJInOI "VRChat - ExpressionsEditor for SDK 3.0 Avatars ( Updated Menu )
+[![IMAGE ALT TEXT](https://i.imgur.com/lNvOfBw.png)](https://www.youtube.com/watch?v=JElV_uA0l2k "VRChat - ExpressionsEditor for SDK 3.0 Avatars ( some rework )
 ")
 
 
@@ -29,6 +29,8 @@ How add avatar cloning to your menu?
 
 - 35x avatars its when expressions parameters are empty.
 - Optimal its 1-3 clones.
+
+https://www.youtube.com/watch?v=ljHXXAv9g-U
 
 More stuff soon.
 
