@@ -552,11 +552,16 @@
         }
 
         public int AmountOfClonableAvatars = 0;
+        public int MaterialSlot = 0;
+        public SkinnedMeshRenderer TextureRenderer;
+
+        public string TextureSwitchName = "";
+        public Material[] SelectedMaterials = new Material[1];
 
         void AddSubmenuPremades(VRCExpressionsMenu menu)
         {
             if (!MainFoldOuts.ContainsKey(menu))
-                MainFoldOuts.Add(menu, new List<bool>() { false, false, false });
+                MainFoldOuts.Add(menu, new List<bool>() { false, false, false, false });
             GUILayout.BeginHorizontal("box");
             GUILayout.FlexibleSpace();
             GUILayout.Label("Menu");
@@ -770,6 +775,49 @@
 
                     }
                     MainFoldOuts[menu][1] = false;
+                }
+            }
+            MainFoldOuts[menu][2] = EditorGUILayout.Foldout(MainFoldOuts[menu][2], "  Material switch");
+            if (MainFoldOuts[menu][2])
+            {
+                TextureSwitchName = EditorGUILayout.TextField("Switch Name", TextureSwitchName);
+                TextureRenderer = (SkinnedMeshRenderer)EditorGUILayout.ObjectField("Material renderer", TextureRenderer, typeof(SkinnedMeshRenderer), true);
+                if (TextureRenderer != null)
+                {
+                    GUILayout.BeginHorizontal("box");
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label("Renderer Materials", EditorStyles.boldLabel);
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                    for (int slot = 0; slot < TextureRenderer.sharedMaterials.Length; slot++)
+                    {
+                        if (slot == MaterialSlot)
+                            GUI.color = Color.green;
+
+                        if (GUILayout.Button($"Slot {slot + 1} ({TextureRenderer.sharedMaterials[slot].name})"))
+                            MaterialSlot = slot;
+
+                        GUI.color = Color.white;
+                    }
+                }
+                GUILayout.BeginHorizontal("box");
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Switch Materials", EditorStyles.boldLabel);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                SerializedObject serialObj = new SerializedObject(this);
+                SerializedProperty serialProp = serialObj.FindProperty("SelectedMaterials");
+                serialProp.isExpanded = true;
+                EditorGUILayout.PropertyField(serialProp, true);
+                serialObj.ApplyModifiedProperties();
+                EditorGUILayout.HelpBox(string.Concat(
+                    "First material its always default like current material used on your avatar."
+                ), MessageType.Info, true);
+
+                if (GUILayout.Button("  Create Material Switch"))
+                {
+                    menu.GenerateTextureSwitch(TextureSwitchName, TextureRenderer, MaterialSlot, SelectedMaterials);
+                    MainFoldOuts[menu][2] = false;
                 }
             }
             GUILayout.BeginHorizontal("box");
