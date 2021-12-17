@@ -343,6 +343,9 @@
                 foundParam.defaultValue = defaultValue;
                 foundParam.saved = true;
             }
+
+            EditorUtility.SetDirty(expressionParameters);
+            AssetDatabase.SaveAssets();
             return foundParam;
         }
 
@@ -1343,6 +1346,8 @@
                 name = name,
                 subMenu = eMenu
             });
+
+
             EditorUtility.SetDirty(menu);
             AssetDatabase.SaveAssets();
             return eMenu;
